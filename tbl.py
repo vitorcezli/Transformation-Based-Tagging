@@ -163,7 +163,7 @@ def tbl( tags, corpus, tagged_corpus ):
 	number_rules = 0
 	
 	while True:
-		if( number_rules == 10 ):
+		if( number_rules == 1000 ):
 			return template_list
 		result = get_best_transform( tags, tagging_corpus, \
 			tagged_corpus, forms )
@@ -178,41 +178,56 @@ def tbl( tags, corpus, tagged_corpus ):
 	return template_list
 
 
-def print_tagging_error( corpus, correct, dictionary ):
+def print_tagging_error( correct, tagging ):
+	dictionary_error = {}
 	error = 0
 
-	for index in range( len( corpus ) ):
-		if correct[ index ] != dictionary[ corpus[ index ] ]:
+	for index in range( len( correct ) ):
+		if correct[ index ] != tagging[ index ]:
 			error += 1
+			if ( correct[ index ], tagging[ index ] ) in dictionary_error:
+				dictionary_error[ ( correct[ index ], tagging[ index ] ) ] += 1
+			else:
+				dictionary_error[ ( correct[ index ], tagging[ index ] ) ] = 1
 
-	error_rate = error / len( corpus )
-	print error_rate
+	print "Error: " + str( error / len( correct ) )
+	for ct, et in dictionary_error.viewitems():
+		print ct[ 0 ] + '/' + ct[ 1 ] + '\t\t\t' + str( et )
+
+
+def classify_file( path, tagging_dictionary, template_rules ):
+	# make a classification based on the training
+	file  = open( path, 'r' )
+	corpus_to_classify = file.read()
+	file.close()
+	corpus_to_classify = corpus_to_classify.split()
+	tagged_corpus = most_likely_tags( corpus_to_classify, tagging_dictionary )
+	for template in template_rules:
+		template.make_transformation( tagged_corpus )
+
+	# print the classification
+	for index in range( len( corpus_to_classify ) ):
+		word = corpus_to_classify[ index ] + '/' + tagged_corpus[ index ]
+		print word,
+	print
 
 
 # get the data for the training
-corpus = get_corpus( 'corpus.txt' )
-corpus = corpus[ 0 : 10000 ]
-correct_tagging = get_tagging()
-correct_tagging = correct_tagging[ 0 : 10000 ]
+corpi = get_corpus( 'corpus.txt' )
+corpus = corpi[ 0 : 1000 ]
+tagging = get_tagging()
+correct_tagging = tagging[ 0 : 1000 ]
 tagging_dictionary = most_likely_tags_dictionary( corpus, correct_tagging )
 tags = list( set( correct_tagging ) )
 
-print_tagging_error( corpus, correct_tagging, tagging_dictionary )
+mlt = most_likely_tags( corpus, tagging_dictionary )
+print_tagging_error( correct_tagging, mlt )
 
 # train the tbl
 template_rules = tbl( tags, corpus, correct_tagging )
-
-# make a classification based on the training
-file  = open( 'classify.txt', 'r' )
-corpus_to_classify = file.read()
-file.close()
-corpus_to_classify = corpus_to_classify.split()
-tagged_corpus = most_likely_tags( corpus_to_classify, tagging_dictionary )
 for template in template_rules:
-	template.make_transformation( tagged_corpus )
+	template.make_transformation( mlt )
+print_tagging_error( correct_tagging, mlt )
 
-# print the classification
-for index in range( len( corpus_to_classify ) ):
-	word = corpus_to_classify[ index ] + '/' + tagged_corpus[ index ]
-	print word,
-print
+
+classify_file( 'classify.txt', tagging_dictionary, template_rules )
